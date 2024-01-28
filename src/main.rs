@@ -9,63 +9,33 @@ use esp_backtrace as _;
 use esp_ieee802154;
 use hal::{clock::ClockControl, embassy, peripherals::Peripherals, prelude::*, timer::TimerGroup};
 use ieee802154::mac::{self, beacon::BeaconOrder, FooterMode};
-use psila_data::{pack::{Pack}, network::{self, NetworkHeader}};
-use ufmt::{uwrite};
+use psila_data::{
+    network::{self, NetworkHeader},
+    pack::Pack,
+};
+use ufmt::uwrite;
 
-fn print_error(error: &psila_data::Error, message: &str)
-{
+fn print_error(error: &psila_data::Error, message: &str) {
     let error_message = match error {
-        psila_data::Error::NotEnoughSpace => {
-            "Not enough space"
-        }
-        psila_data::Error::WrongNumberOfBytes => {
-            "Wrong number of bytes"
-        }
-        psila_data::Error::InvalidValue => {
-            "Invalid value"
-        }
-        psila_data::Error::NotImplemented => {
-            "Not implemented"
-        }
-        psila_data::Error::NoShortAddress => {
-            "No short address"
-        }
-        psila_data::Error::NoExtendedAddress => {
-            "No extended address"
-        }
-        psila_data::Error::UnknownFrameType => {
-            "Unknown frame type"
-        }
-        psila_data::Error::BrokenRelayList => {
-            "Broken relay list"
-        }
-        psila_data::Error::UnknownNetworkCommand => {
-            "Unknown network command"
-        }
-        psila_data::Error::UnknownDeliveryMode => {
-            "Unknown delivery mode"
-        }
-        psila_data::Error::UnknownSecurityLevel => {
-            "Unknown security level"
-        }
-        psila_data::Error::UnknownKeyIdentifier => {
-            "Unknown key identifier"
-        }
+        psila_data::Error::NotEnoughSpace => "Not enough space",
+        psila_data::Error::WrongNumberOfBytes => "Wrong number of bytes",
+        psila_data::Error::InvalidValue => "Invalid value",
+        psila_data::Error::NotImplemented => "Not implemented",
+        psila_data::Error::NoShortAddress => "No short address",
+        psila_data::Error::NoExtendedAddress => "No extended address",
+        psila_data::Error::UnknownFrameType => "Unknown frame type",
+        psila_data::Error::BrokenRelayList => "Broken relay list",
+        psila_data::Error::UnknownNetworkCommand => "Unknown network command",
+        psila_data::Error::UnknownDeliveryMode => "Unknown delivery mode",
+        psila_data::Error::UnknownSecurityLevel => "Unknown security level",
+        psila_data::Error::UnknownKeyIdentifier => "Unknown key identifier",
         psila_data::Error::UnknownApplicationCommandIdentifier => {
             "Unknown application command identifier"
         }
-        psila_data::Error::UnknownDiscoverRoute => {
-            "Unknown discovery route"
-        }
-        psila_data::Error::UnknownClusterIdentifier => {
-            "Unknown cluster identifier"
-        }
-        psila_data::Error::UnsupportedAttributeValue => {
-            "Unsupported attribute value"
-        }
-        psila_data::Error::CryptoError(_) => {
-            "Crypto error"
-        }
+        psila_data::Error::UnknownDiscoverRoute => "Unknown discovery route",
+        psila_data::Error::UnknownClusterIdentifier => "Unknown cluster identifier",
+        psila_data::Error::UnsupportedAttributeValue => "Unsupported attribute value",
+        psila_data::Error::CryptoError(_) => "Crypto error",
     };
     defmt::error!("{}, {}", message, error_message);
 }
@@ -75,24 +45,23 @@ fn parse_network_frame(payload: &[u8]) {
 
     match NetworkHeader::unpack(payload) {
         Ok((network_frame, _used)) => {
-
             let frame_type = match network_frame.control.frame_type {
                 network::header::FrameType::Command => "Command",
                 network::header::FrameType::Data => "Data",
                 network::header::FrameType::InterPan => "Interpan",
             };
             let discovery = match network_frame.control.discover_route {
-                network::header::DiscoverRoute::EnableDiscovery => {
-                    " DSC"
-                }
-                network::header::DiscoverRoute::SuppressDiscovery => {
-                    ""
-                }
+                network::header::DiscoverRoute::EnableDiscovery => " DSC",
+                network::header::DiscoverRoute::SuppressDiscovery => "",
             };
             let security = if network_frame.control.security {
                 " SEC"
-            } else { "" };
-            let _ = uwrite!(line, "NWK {} VER {}{}{} DST {:04x} SRC {:04x} RAD {} SEQ {}",
+            } else {
+                ""
+            };
+            let _ = uwrite!(
+                line,
+                "NWK {} VER {}{}{} DST {:04x} SRC {:04x} RAD {} SEQ {}",
                 frame_type,
                 network_frame.control.protocol_version,
                 discovery,
@@ -109,7 +78,10 @@ fn parse_network_frame(payload: &[u8]) {
                 let _ = uwrite!(line, " SRC {:08x}", u64::from(src));
             }
             if let Some(mc) = network_frame.multicast_control {
-                let mode = match mc.mode { network::header::MulticastMode::NonmemberMode => "non-member", network::header::MulticastMode::MemberMode => "member" };
+                let mode = match mc.mode {
+                    network::header::MulticastMode::NonmemberMode => "non-member",
+                    network::header::MulticastMode::MemberMode => "member",
+                };
                 let _ = uwrite!(line, " MC {} RAD {} MAX {}", mode, mc.radius, mc.max_radius);
             }
             if let Some(srf) = network_frame.source_route_frame {
@@ -130,33 +102,21 @@ fn parse_802154_mac(frame: &ieee802154::mac::Frame) {
     let mut line: heapless::String<256> = heapless::String::new();
 
     let frame_type = match frame.header.frame_type {
-        mac::FrameType::Acknowledgement => {
-            "Acknowledgement"
-        }
-        mac::FrameType::Beacon => {
-            "Beacon"
-        }
-        mac::FrameType::Data => {
-            "Data"
-        }
-        mac::FrameType::MacCommand => {
-            "Command"
-        }
-        mac::FrameType::Multipurpose => {
-            "Multipurpose"
-        }
-        mac::FrameType::FragOrFragAck => {
-            "Fragment"
-        }
-        mac::FrameType::Extended => {
-            "Extended"
-        }
+        mac::FrameType::Acknowledgement => "Acknowledgement",
+        mac::FrameType::Beacon => "Beacon",
+        mac::FrameType::Data => "Data",
+        mac::FrameType::MacCommand => "Command",
+        mac::FrameType::Multipurpose => "Multipurpose",
+        mac::FrameType::FragOrFragAck => "Fragment",
+        mac::FrameType::Extended => "Extended",
     };
     let _ = uwrite!(&mut line, "802.15.4 TYPE: {}", frame_type);
     if frame.header.frame_pending {
         let _ = uwrite!(&mut line, " PEND");
     }
-    if frame.header.ack_request { let _ = uwrite!(&mut line, " ACK"); }
+    if frame.header.ack_request {
+        let _ = uwrite!(&mut line, " ACK");
+    }
     if frame.header.pan_id_compress {
         let _ = uwrite!(&mut line, " CMPR");
     }
@@ -168,7 +128,7 @@ fn parse_802154_mac(frame: &ieee802154::mac::Frame) {
         Some(mac::Address::Extended(i, a)) => {
             let _ = uwrite!(&mut line, " DST: {:04x}:{:016x}", i.0, a.0);
         }
-        None => ()
+        None => (),
     }
     match frame.header.source {
         Some(mac::Address::Short(i, a)) => {
@@ -177,7 +137,7 @@ fn parse_802154_mac(frame: &ieee802154::mac::Frame) {
         Some(mac::Address::Extended(i, a)) => {
             let _ = uwrite!(&mut line, " SRC: {:04x}:{:016x}", i.0, a.0);
         }
-        None => ()
+        None => (),
     }
     match frame.content {
         mac::FrameContent::Acknowledgement => {
@@ -186,8 +146,9 @@ fn parse_802154_mac(frame: &ieee802154::mac::Frame) {
         mac::FrameContent::Beacon(beacon) => {
             let _ = uwrite!(&mut line, " Beacon ");
             match beacon.superframe_spec.beacon_order {
-                BeaconOrder::OnDemand =>
-                    {let _ = uwrite!(&mut line, "on-demand ");}
+                BeaconOrder::OnDemand => {
+                    let _ = uwrite!(&mut line, "on-demand ");
+                }
                 BeaconOrder::BeaconOrder(value) => {
                     let _ = uwrite!(&mut line, "order {}", value);
                 }
@@ -207,8 +168,11 @@ fn parse_802154_mac(frame: &ieee802154::mac::Frame) {
                 let _ = uwrite!(&mut line, "Battery life extension");
             }
             if beacon.guaranteed_time_slot_info.permit {
-                let _ = uwrite!(&mut line, "GTS slots {}",
-                    beacon.guaranteed_time_slot_info.slots().len());
+                let _ = uwrite!(
+                    &mut line,
+                    "GTS slots {}",
+                    beacon.guaranteed_time_slot_info.slots().len()
+                );
             }
         }
         mac::FrameContent::Data => (),
@@ -243,9 +207,7 @@ fn parse_802154_mac(frame: &ieee802154::mac::Frame) {
                         mac::command::DisassociationReason::CoordinatorLeave => {
                             "requested to leave"
                         }
-                        mac::command::DisassociationReason::DeviceLeave => {
-                            "leave"
-                        }
+                        mac::command::DisassociationReason::DeviceLeave => "leave",
                     };
                     let _ = uwrite!(&mut line, " Disassociation {}", reason);
                 }
