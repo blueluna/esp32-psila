@@ -1,0 +1,40 @@
+[package]
+name = "esp32c6-psila"
+version = "0.1.0"
+authors = ["Erik Bånvik <erik.public@gmail.com>"]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+hal = { package = "esp32c6-hal", version = "0.8", features = ["embassy", "async", "embassy-time-timg0", "embassy-executor-thread", "defmt"] }
+esp-backtrace = { version = "0.10.0", features = ["esp32c6", "panic-handler", "exception-handler", "print-uart", "defmt-espflash"] }
+esp-ieee802154 = { version = "0.1.0", features = ["esp32c6"] }
+esp-println = { version = "0.8.0", features = ["esp32c6", "defmt-espflash"] }
+ufmt = "0.2"
+heapless = { version = "0.8", default-features = false, features = ["ufmt", "serde"] }
+
+byte = { git = "https://github.com/andylokandy/byte.git" }
+defmt = "0.3"
+embassy-executor = { version = "0.5.0", features = ["nightly"] }
+ieee802154 = { git = "https://github.com/blueluna/ieee-802.15.4.git" }
+psila-data = { git = "https://github.com/blueluna/psila.git", features = ["core"] }
+
+[patch.crates-io]
+esp-ieee802154 = { git = "https://github.com/esp-rs/esp-ieee802154", rev = "bfe32f6d2e2251050011a4134ba82d6316cbfa95", package = "esp-ieee802154" }
+
+[profile.dev]
+codegen-units = 1
+debug = 2
+debug-assertions = true
+incremental = false
+opt-level = 2
+overflow-checks = true
+
+[profile.release]
+codegen-units = 1
+debug = 2
+debug-assertions = false
+incremental = false
+lto = 'fat'
+opt-level = 3
+overflow-checks = false
