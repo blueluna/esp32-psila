@@ -4,8 +4,11 @@
 
 Requires a fairly modern version of Rust. See https://rustup.rs for installation.
 
+Some configuration is applied from environment variables during the build.
+- NETWORK_KEY, Optional, A network key used to decrypt secure payload. 16-bit hexadecimal, i.e. `fedcba9876543210fedcba9876543210`.
+
 ```shell
-cargo build
+NETWORK_KEY=<NETWORK_KEY> cargo build --examples
 ```
 
 ### Flash and run
@@ -18,5 +21,5 @@ cargo install -f --git https://github.com/esp-rs/espflash espflash
 Run similar to the build step.
 
 ```shell
-cargo run
+NETWORK_KEY=<NETWORK_KEY> cargo run --example listener
 ```
