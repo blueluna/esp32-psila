@@ -26,20 +26,14 @@ impl SecurityService {
         let mut line: heapless::String<256> = heapless::String::new();
 
         let level = match header.control.level {
-            psila_data::security::SecurityLevel::None => "none",
-            psila_data::security::SecurityLevel::Integrity32 => "32-bitIntegrity",
-            psila_data::security::SecurityLevel::Integrity64 => "64-bitIntegrity",
-            psila_data::security::SecurityLevel::Integrity128 => "128-bitIntegrity",
-            psila_data::security::SecurityLevel::Encrypted => "Encrypted",
-            psila_data::security::SecurityLevel::EncryptedIntegrity32 => {
-                "Encrypted, 32-bit Integrity"
-            }
-            psila_data::security::SecurityLevel::EncryptedIntegrity64 => {
-                "Encrypted, 64-bit Integrity"
-            }
-            psila_data::security::SecurityLevel::EncryptedIntegrity128 => {
-                "Encrypted, 128-bit Integrity"
-            }
+            security::SecurityLevel::None => "None",
+            security::SecurityLevel::Integrity32 => "32-bitIntegrity",
+            security::SecurityLevel::Integrity64 => "64-bitIntegrity",
+            security::SecurityLevel::Integrity128 => "128-bitIntegrity",
+            security::SecurityLevel::Encrypted => "Encrypted",
+            security::SecurityLevel::EncryptedIntegrity32 => "Encrypted, 32-bit Integrity",
+            security::SecurityLevel::EncryptedIntegrity64 => "Encrypted, 64-bit Integrity",
+            security::SecurityLevel::EncryptedIntegrity128 => "Encrypted, 128-bit Integrity",
         };
         let identifier = match header.control.identifier {
             security::KeyIdentifier::Data => "Data",
@@ -56,6 +50,7 @@ impl SecurityService {
             let _ = uwrite!(line, " Sequence {}", seq);
         }
         let _ = uwrite!(line, " Counter {}", header.counter);
+        defmt::info!("{}", line.as_str());
     }
 
     pub fn decrypt(&mut self, payload: &[u8], offset: usize, mut output: &mut [u8]) -> usize {
@@ -68,8 +63,8 @@ impl SecurityService {
                 return 0;
             }
         }
-        for key in self.keys.iter() {
-            let key = (*key).into();
+        for key_index in 0..self.keys.len() {
+            let key = self.keys[key_index].into();
             let result = self.crypto_provider.decrypt_payload(
                 &key,
                 security::SecurityLevel::EncryptedIntegrity32,
@@ -80,6 +75,7 @@ impl SecurityService {
             match result {
                 Ok(size) => {
                     if size > 0 {
+                        defmt::info!("~~~ KEY {}", key_index);
                         return size;
                     }
                 }

@@ -44,7 +44,7 @@ async fn main(_spawner: Spawner) -> ! {
     let mut ieee802154 = esp_ieee802154::Ieee802154::new(radio, &mut system.radio_clock_control);
 
     ieee802154.set_config(esp_ieee802154::Config {
-        channel: 11,
+        channel: 25,
         promiscuous: true,
         rx_when_idle: true,
         auto_ack_rx: false,

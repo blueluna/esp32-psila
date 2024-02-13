@@ -1,6 +1,7 @@
 use defmt;
 use ieee802154::mac::{self, beacon::BeaconOrder};
 use psila_data::{
+    application_service::{self, ApplicationServiceHeader},
     network::{self, NetworkHeader},
     pack::Pack,
 };
@@ -16,6 +17,265 @@ impl Parser {
     pub fn new() -> Self {
         Parser {
             security: SecurityService::new(),
+        }
+    }
+
+    fn print_key<W: ufmt::uWrite>(writer: &mut W, key: &psila_data::Key) {
+        let k: [u8; 16] = (*key).into();
+        for b in k.iter() {
+            let _ = uwrite!(writer, "{:02x}", *b);
+        }
+    }
+
+    fn handle_application_service_command(&mut self, payload: &[u8]) {
+        use application_service::Command;
+        let mut line: heapless::String<256> = heapless::String::new();
+        let _ = uwrite!(line, "APS Command ");
+        match Command::unpack(payload) {
+            Ok((cmd, _used)) => {
+                match cmd {
+                    Command::SymmetricKeyKeyEstablishment1(cmd) => {
+                        let _ = uwrite!(
+                            line,
+                            "SKKE1 Initator {} Responder {} ",
+                            u64::from(cmd.initiator),
+                            u64::from(cmd.responder)
+                        );
+                        for b in cmd.data.iter() {
+                            let _ = uwrite!(line, "{:02x}", *b);
+                        }
+                    }
+                    Command::SymmetricKeyKeyEstablishment2(cmd) => {
+                        let _ = uwrite!(
+                            line,
+                            "SKKE2 Initator {} Responder {} ",
+                            u64::from(cmd.initiator),
+                            u64::from(cmd.responder)
+                        );
+                        for b in cmd.data.iter() {
+                            let _ = uwrite!(line, "{:02x}", *b);
+                        }
+                    }
+                    Command::SymmetricKeyKeyEstablishment3(cmd) => {
+                        let _ = uwrite!(
+                            line,
+                            "SKKE3 Initator {} Responder {} ",
+                            u64::from(cmd.initiator),
+                            u64::from(cmd.responder)
+                        );
+                        for b in cmd.data.iter() {
+                            let _ = uwrite!(line, "{:02x}", *b);
+                        }
+                    }
+                    Command::SymmetricKeyKeyEstablishment4(cmd) => {
+                        let _ = uwrite!(
+                            line,
+                            "SKKE4 Initator {} Responder {} ",
+                            u64::from(cmd.initiator),
+                            u64::from(cmd.responder)
+                        );
+                        for b in cmd.data.iter() {
+                            let _ = uwrite!(line, "{:02x}", *b);
+                        }
+                    }
+                    Command::TransportKey(cmd) => {
+                        use application_service::commands::TransportKey;
+                        let _ = uwrite!(line, "Transport Key ");
+                        match cmd {
+                            TransportKey::TrustCenterMasterKey(key) => {
+                                let _ = uwrite!(
+                                    line,
+                                    "Trust Center Master Key, DST {:016x} SRC {:016x} KEY ",
+                                    u64::from(key.destination),
+                                    u64::from(key.source)
+                                );
+                                Self::print_key(&mut line, &key.key);
+                            }
+                            TransportKey::StandardNetworkKey(key) => {
+                                let _ = uwrite!(
+                                    line,
+                                    "Standard Network Key, DST {:016x} SRC {:016x} SEQ {} KEY ",
+                                    u64::from(key.destination),
+                                    u64::from(key.source),
+                                    key.sequence,
+                                );
+                                Self::print_key(&mut line, &key.key);
+                                self.security.add_transport_key(&key);
+                            }
+                            TransportKey::ApplicationMasterKey(key) => {
+                                let _ = uwrite!(
+                                    line,
+                                    "Application Master Key, Partner {:016x} {} KEY ",
+                                    u64::from(key.partner),
+                                    if key.initiator { "Initiator" } else { "" },
+                                );
+                                Self::print_key(&mut line, &key.key);
+                            }
+                            TransportKey::ApplicationLinkKey(key) => {
+                                let _ = uwrite!(
+                                    line,
+                                    "Application Link Key, Partner {:016x} {} KEY ",
+                                    u64::from(key.partner),
+                                    if key.initiator { "Initiator" } else { "" },
+                                );
+                                Self::print_key(&mut line, &key.key);
+                            }
+                            TransportKey::UniqueTrustCenterLinkKey(key) => {
+                                let _ =
+                                    uwrite!(line,
+                                    "Unique Trust Center Link Key, DST {:016x} SRC {:016x} KEY ",
+                                    u64::from(key.destination), u64::from(key.source)
+                                );
+                                Self::print_key(&mut line, &key.key);
+                            }
+                            TransportKey::HighSecurityNetworkKey(key) => {
+                                let _ = uwrite!(line,
+                                    "High Security Network Key, DST {:016x} SRC {:016x} SEQ {:02x} KEY ",
+                                    u64::from(key.destination), u64::from(key.source), key.sequence
+                                );
+                                Self::print_key(&mut line, &key.key);
+                            }
+                        }
+                    }
+                    Command::UpdateDevice(cmd) => {
+                        let _ = uwrite!(
+                            line,
+                            "Update Device, {} {} {:?}",
+                            u64::from(cmd.address),
+                            u16::from(cmd.short_address),
+                            u8::from(cmd.status)
+                        );
+                    }
+                    Command::RemoveDevice(cmd) => {
+                        let _ = uwrite!(line, "Remove Device, {}", u64::from(cmd.address));
+                    }
+                    Command::RequestKey(cmd) => {
+                        let _ = uwrite!(line, "Request Key, {}", u8::from(cmd.key_type));
+                        if let Some(partner) = cmd.partner_address {
+                            let _ = uwrite!(line, " Partner {}", u64::from(partner));
+                        }
+                    }
+                    Command::SwitchKey(cmd) => {
+                        let _ = uwrite!(line, "Switch Key, Sequence {}", cmd.sequence);
+                    }
+                    Command::EntityAuthenticationInitiatorChallenge => {
+                        let _ = uwrite!(line, "EAC Initiator");
+                    }
+                    Command::EntityAuthenticationResponderChallenge => {
+                        let _ = uwrite!(line, "EAC Responder");
+                    }
+                    Command::EntityAuthenticationInitiatorMacAndData => {
+                        let _ = uwrite!(line, "EAMD Initiator");
+                    }
+                    Command::EntityAuthenticationResponderMacAndData => {
+                        let _ = uwrite!(line, "EAMD Responder");
+                    }
+                    Command::Tunnel(cmd) => {
+                        let _ = uwrite!(line, "Tunnel {}", u64::from(cmd.destination));
+                    }
+                    Command::VerifyKey(cmd) => {
+                        let _ = uwrite!(
+                            line,
+                            "Verify Key, Source {} Type {} ",
+                            u64::from(cmd.source),
+                            u8::from(cmd.key_type)
+                        );
+                        for b in cmd.value.iter() {
+                            let _ = uwrite!(line, "{:02x}", *b);
+                        }
+                    }
+                    Command::ConfirmKey(cmd) => {
+                        let _ = uwrite!(
+                            line,
+                            "Confirm Key, Source {} Type {} Status {}",
+                            u64::from(cmd.destination),
+                            u8::from(cmd.key_type),
+                            u8::from(cmd.status)
+                        );
+                    }
+                }
+                defmt::info!("{}", line.as_str());
+            }
+            Err(ref e) => {
+                crate::print_error(e, "Failed to parse APS command");
+            }
+        }
+    }
+    fn parse_application_service_frame(&mut self, payload: &[u8]) {
+        let mut line: heapless::String<256> = heapless::String::new();
+        match ApplicationServiceHeader::unpack(payload) {
+            Ok((header, used)) => {
+                let _ = uwrite!(line, "APS ");
+                let ack_format = if header.control.acknowledge_format {
+                    "AckCmd"
+                } else {
+                    "AckData"
+                };
+                let _ = uwrite!(line, "{} ", ack_format,);
+                if header.control.security {
+                    let _ = uwrite!(line, "Secure ");
+                }
+                if header.control.acknowledge_request {
+                    let _ = uwrite!(line, "AckReq ");
+                }
+                if header.control.extended_header {
+                    let _ = uwrite!(line, "ExtHdr ");
+                }
+                if let Some(addr) = header.destination {
+                    let _ = uwrite!(line, "Dst {:02x} ", addr);
+                }
+                if let Some(group) = header.group {
+                    let _ = uwrite!(line, "Group {:04x} ", group);
+                }
+                if let Some(cluster) = header.cluster {
+                    let _ = uwrite!(line, "Cluster {:04x} ", cluster);
+                }
+                if let Some(profile) = header.profile {
+                    let _ = uwrite!(line, "Profile {:04x} ", profile);
+                }
+                if let Some(addr) = header.source {
+                    let _ = uwrite!(line, "Src {:02x} ", addr);
+                }
+                let _ = uwrite!(line, "Counter {:02x}", header.counter);
+                let mut processed_payload = [0u8; 256];
+                let length = if header.control.security {
+                    self.security
+                        .decrypt(&payload, used, &mut processed_payload)
+                } else {
+                    let length = payload.len() - used;
+                    processed_payload[..length].copy_from_slice(&payload[used..]);
+                    length
+                };
+                match header.control.frame_type {
+                    application_service::header::FrameType::Data => {
+                        let _ = uwrite!(line, "Payload: ");
+                        for b in payload[used..].iter() {
+                            let _ = uwrite!(line, "{:02x}", *b);
+                        }
+                    }
+                    application_service::header::FrameType::Command => {
+                        self.handle_application_service_command(&processed_payload[..length]);
+                    }
+                    application_service::header::FrameType::Acknowledgement => {
+                        if !payload[used..].is_empty() {
+                            let _ = uwrite!(line, "APS Acknowledgement Payload: ");
+                            for b in payload[used..].iter() {
+                                let _ = uwrite!(line, "{:02x}", *b);
+                            }
+                        }
+                    }
+                    application_service::header::FrameType::InterPan => {
+                        let _ = uwrite!(line, "APS Inter-PAN Payload: ");
+                        for b in payload[used..].iter() {
+                            let _ = uwrite!(line, "{:02x}", *b);
+                        }
+                    }
+                }
+                defmt::info!("{}", line.as_str());
+            }
+            Err(ref e) => {
+                crate::print_error(e, "Failed to parse APS header");
+            }
         }
     }
 
@@ -142,7 +402,6 @@ impl Parser {
                     );
                 }
                 Command::EndDeviceTimeoutResponse(edtr) => {
-
                     let _ = uwrite!(
                         line,
                         "End-device Timeout Response, {} {} {}",
@@ -231,7 +490,7 @@ impl Parser {
                 if length > 0 {
                     match network_frame.control.frame_type {
                         network::header::FrameType::Data | network::header::FrameType::InterPan => {
-                            // self.parse_application_service_frame(&processed_payload[..length])
+                            self.parse_application_service_frame(&processed_payload[..length])
                         }
                         network::header::FrameType::Command => {
                             self.parse_network_command(&processed_payload[..length]);
@@ -245,7 +504,7 @@ impl Parser {
         }
     }
 
-    pub fn parse_802154_mac(&mut self, frame: &ieee802154::mac::Frame) {
+    pub fn parse_802154_mac(&mut self, frame: &mac::Frame) {
         let mut line: heapless::String<256> = heapless::String::new();
 
         let frame_type = match frame.header.frame_type {
@@ -257,7 +516,17 @@ impl Parser {
             mac::FrameType::FragOrFragAck => "Fragment",
             mac::FrameType::Extended => "Extended",
         };
-        let _ = uwrite!(&mut line, "802.15.4 TYPE: {}", frame_type);
+        let frame_version = match frame.header.version {
+            mac::FrameVersion::Ieee802154_2003 => "2003",
+            mac::FrameVersion::Ieee802154_2006 => "2003",
+            mac::FrameVersion::Ieee802154 => "20xx",
+        };
+        let _ = uwrite!(
+            &mut line,
+            "802.15.4 VER: {} TYPE: {}",
+            frame_version,
+            frame_type
+        );
         if frame.header.frame_pending {
             let _ = uwrite!(&mut line, " PEND");
         }

@@ -1,5 +1,5 @@
 [target.riscv32imac-unknown-none-elf]
-runner = "espflash flash --monitor --log-format=defmt"
+runner = "espflash flash --chip esp32c6 --monitor --log-format=defmt"
 
 [build]
 rustflags = [
